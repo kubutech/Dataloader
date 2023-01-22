@@ -28,19 +28,6 @@ char pass[PASSWORD_LENGTH];
 esp_netif_t *p_netif_ap;
 esp_netif_t *p_netif_sta;
 
-wifi_scan_config_t scan_config = {
-    .ssid = NULL,
-    .bssid = NULL,
-    .channel = 0,
-    .show_hidden = 0,
-    .scan_time = {
-        .active = {
-            .min = 300,
-            .max = 900,
-        },
-    },
-};
-
 void display_device_status(void *pvParameters)
 {
     while (1) {
@@ -299,59 +286,7 @@ void wifi_init_softap(void)
     networking.networking_status = NETWORKING_AP;
 }
 
-void init_connection(char* data)
-{
-    char temp_ssid[SSID_LENGTH];
-    char temp_pass[PASSWORD_LENGTH];
-    
-    strcpy(temp_ssid, ssid);
-    strcpy(temp_pass, pass);
-
-    strcpy(ssid, (char*)data);
-
-    if(strlen(ssid) <= 0) {
-        ESP_LOGE(SERVER_TAG, "Error parsing SSID from the message\n");
-        strcpy(ssid, temp_ssid);
-        strcpy(pass, temp_pass);
-        return;
-    }
-
-    strcpy(pass, (char*)data + strlen(ssid) + 1);
-
-    if(strlen(pass) <= 0) {
-        ESP_LOGE(SERVER_TAG, "Error parsing Password from the message\n");
-        strcpy(ssid, temp_ssid);
-        strcpy(pass, temp_pass);
-        return;
-    }
-
-    wifi_init_sta();
-
-    if (networking.networking_status != NETWORKING_STA) {
-        ESP_LOGE(SERVER_TAG, "Couldn't connect to AP with specified credentials\n");
-        strcpy(ssid, temp_ssid);
-        strcpy(pass, temp_pass);
-        wifi_init_sta();
-    }
-}
-
 Networking_struct* get_networking_status()
 {
     return &networking;
-}
-
-void get_network_list(char* entity)
-{
-    esp_wifi_scan_start(&scan_config, 1);
-    wifi_ap_record_t records[MAX_NUMBER_OF_AP_RECORDS];
-    uint16_t number_of_records = MAX_NUMBER_OF_AP_RECORDS;
-    esp_wifi_scan_get_ap_records(&number_of_records, &records);
-    strcat(entity, "{\n\t\"ssids\":[\n");
-    for (int i = 0; i < number_of_records; i++) {
-        strcat(entity, "\t\t\"");
-        strcat(entity, (char*)records[i].ssid);
-        strcat(entity, "\",\n");
-    }
-    entity[strlen(entity) - 2] = ' ';
-    strcat(entity, "\t]\n}");
 }

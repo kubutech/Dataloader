@@ -1,5 +1,4 @@
 #include <string.h>
-#include <stdio.h>
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "lwip/sockets.h"
@@ -7,8 +6,6 @@
 #include "HTTP_server.h"
 
 #include "networking.h"
-#include "storage_interface.h"
-#include "monitor.h"
 
 void http_listener_task(void* pvParameters)
 {
@@ -92,58 +89,32 @@ void handle_http_request(int connection_socket)
         filename[strlen(filename) - 1] = 0;
 
         char* response;
-        FILE *file = NULL;
-        long entity_size = 0;
 
         if (strcmp(method, "GET ") == 0) {
 
-            if (strcmp(filename, "/") == 0) {
-                strcat(filename, "MainPage.html");
-            }
-
-            file = open_file(&entity_size, filename, "r");
-
-            if (entity_size == -1) {
-                if (strcmp(filename, "/esp_status") == 0) {
-                    get_status_json(buffer);
-                    response = GET_response_header(strlen(buffer), "application/json");
-                } else if (strcmp(filename, "/network_list") == 0) {
-                    bzero(buffer, MAX_RESPONSE_LENGHT);
-                    get_network_list(buffer);
-                    response = GET_response_header(strlen(buffer), "application/json");
-                } else {
-                    ESP_LOGE("files", "File '%s' not found on the server", filename);
-                    response = "HTTP/1.1 404 Not Found\r\n";
-                }
+            if (strcmp(filename, "/dataload") == 0) {
+                response = "HTTP/1.1 200 OK\r\n";
+                
+            } else if (strcmp(filename, "/esp_status") == 0) {
+                
+                response = "HTTP/1.1 200 OK\r\n";
             } else {
-                response = GET_response_header(entity_size, get_file_type(filename));
+                response = "HTTP/1.1 404 Not Found\r\n";
             }
 
         } else if (strcmp(method, "POST ") == 0) {
             if (strcmp(filename, "/credentials") == 0) {
-                int offset = calculate_entity_offset(buffer);
-                char* credentials = malloc(PASSWORD_LENGTH + SSID_LENGTH + 3);
-                bzero(credentials, PASSWORD_LENGTH + SSID_LENGTH + 3);
-                memccpy(credentials, buffer + offset, '\n', PASSWORD_LENGTH + SSID_LENGTH + 2);
-                init_connection(credentials);
+
+                response = "HTTP/1.1 200 OK\r\n";
+            } else {
+                response = "HTTP/1.1 404 Not Found\r\n";
             }
-            response = "HTTP/1.1 200 OK\r\n";
         } else {
             response = "HTTP/1.1 400 Bad Request\r\n";
         }
 
         send(connection_socket, response, strlen(response), 0);
-        if (file != NULL) {
-            fseek(file, 0L, SEEK_SET);
-            do {
-                char send_buffer[MAX_RESPONSE_LENGHT] = {0};
-                int size = fread(send_buffer, 1, MAX_RESPONSE_LENGHT, file);
-                send(connection_socket, send_buffer, size, 0);
-            } while (feof(file) == 0);
-            fclose(file);
-        } else if (strlen(buffer) > 0) {
-            send(connection_socket, buffer, strlen(buffer), 0);
-        }
+        
     }
     shutdown(connection_socket, SHUT_RDWR);
     close(connection_socket);
@@ -166,19 +137,4 @@ int calculate_entity_offset(char* buffer)
         }
     }
     return 0;
-}
-
-char* get_file_type(char* filename)
-{
-    char* extension = strchr(filename, '.');
-
-    if (strcmp(extension, ".html") == 0) {
-        return "text/html";
-    } else if (strcmp(extension, ".txt") == 0) {
-        return "text/plain";
-    } else if (strcmp(extension, ".png") == 0 || strcmp(extension, ".ico") == 0) {
-        return "image/png";
-    } else {
-        return "application/octet-stream";
-    }
 }

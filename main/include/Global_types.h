@@ -1,16 +1,12 @@
 #pragma once
 
 #include <string.h>
-#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_mac.h"
 
 #include "esp_log.h"
 #include "nvs_flash.h"
-#include "esp_mac.h"
-#include "esp_chip_info.h"
-#include "esp_system.h"
-#include "esp_app_desc.h"
 
 #define SUCCESS 1
 #define FAILURE 0
@@ -34,8 +30,8 @@
 #define PASSWORD_LENGTH            64
 #define SSID_LENGTH                32
 
-#define ESP_NAME                   "Ganymede"
-#define AP_ESP_PASS                "esp_32_Ganymede"
+#define ESP_NAME                   "ESP_Kuba"
+#define AP_ESP_PASS                "esp_32_Kuba"
 #define AP_ESP_CHANNEL             6
 #define AP_MAX_STA_CONN            4
 #define RETRY_PERIOD               300 //time for the device to retry connection to memorized AP when in SoftAP mode
@@ -69,10 +65,3 @@ typedef struct {
     char my_ip[24];
     int networking_status;
 } Networking_struct;
-
-typedef struct {
-    int seconds;
-    int minutes;
-    int hours;
-    int days;
-} Uptime;
