@@ -66,7 +66,7 @@ void http_listener_task(void* pvParameters)
             close(http_socket);
         }
         ESP_LOGE(SERVER_TAG, "Cannot start up HTTP server- connection not yet established");
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
