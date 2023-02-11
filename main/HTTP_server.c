@@ -4,7 +4,7 @@
 #include "lwip/sockets.h"
 #include <lwip/netdb.h>
 #include "HTTP_server.h"
-
+#include "ota_update.h"
 #include "networking.h"
 
 void http_listener_task(void* pvParameters)
@@ -87,17 +87,43 @@ void handle_http_request(int connection_socket)
         bzero(filename, MAX_PATHLENGTH);
         memccpy(filename + strlen(filename), buffer + strlen(method), '\x20', MAX_PATHLENGTH);
         filename[strlen(filename) - 1] = 0;
-
+        
+        char* entity;
+        long entity_size = 0;
         char* response;
 
         if (strcmp(method, "GET ") == 0) {
 
-            if (strcmp(filename, "/dataload") == 0) {
-                response = "HTTP/1.1 200 OK\r\n";
+            if (strcmp(filename, "/") == 0) {
+                extern const uint8_t page_start[] asm("_binary_Dataloader_html_start");
+                extern const uint8_t page_end[]   asm("_binary_Dataloader_html_end");
+                entity = page_start;
+                entity_size = page_end - page_start;
+                response = GET_response_header(entity_size, "text/html");
                 
             } else if (strcmp(filename, "/esp_status") == 0) {
+                entity = malloc(MAX_RESPONSE_LENGHT);
+                bzero(entity, MAX_RESPONSE_LENGHT);
+                get_status_json(entity);
+                entity_size = strlen(entity);
+                response = GET_response_header(entity_size, "application/json");
                 
-                response = "HTTP/1.1 200 OK\r\n";
+            } else if (strcmp(filename, "/switch_to_ota") == 0) {
+                enum Uplaod_status status = switch_to_ota_partition();
+                if (status == UPLOAD_SUCCESSFUL) {
+                    entity = "Operation accepted";
+                    entity_size = strlen(entity);
+                    response = GET_response_header(entity_size, "text/plain");
+                    strcat(response, entity);
+                    send(connection_socket, response, strlen(response), 0);
+                    vTaskDelay(1000 / portTICK_PERIOD_MS);
+                    esp_restart();
+                    return;
+                } else {
+                    entity = "Operation rejected";
+                }
+                entity_size = strlen(entity);
+                response = GET_response_header(entity_size, "text/plain");
             } else {
                 response = "HTTP/1.1 404 Not Found\r\n";
             }
@@ -106,7 +132,63 @@ void handle_http_request(int connection_socket)
             if (strcmp(filename, "/credentials") == 0) {
 
                 response = "HTTP/1.1 200 OK\r\n";
-            } else {
+            } else if (strcmp(filename, "/main_app.bin") == 0) {
+                ESP_LOGI(SERVER_TAG, "Received upload request!!!!!");
+                enum Uplaod_status status = initialize_ota();
+                
+                if (status == UPLAOD_FAILED) {
+                    response = "HTTP/1.1 500 Internal Server Error\r\n";
+                } else {
+                    char buffer[MAX_RESPONSE_LENGHT];
+                    int recv_size = 1;
+
+                    while (recv_size > 0 && status != UPLAOD_FAILED) {
+                        bzero(buffer, MAX_RESPONSE_LENGHT);
+                        recv_size = recv(connection_socket, buffer, MAX_RESPONSE_LENGHT, 0);
+                        if (recv_size > 0) {
+                            status = write_ota_data(buffer, recv_size);
+                        }
+                    }
+
+                    if (status != UPLAOD_FAILED) {
+                        end_ota_update();
+                    }
+
+                    if (status == UPLAOD_FAILED) {
+                        response = "HTTP/1.1 500 Internal Server Error\r\n";
+                    } else {
+                        response = "HTTP/1.1 200 OK\r\n";
+                    }
+
+                }
+
+                response = "HTTP/1.1 200 OK\r\n";
+            } else if (strcmp(filename, "/spiffs.bin") == 0) {
+                ESP_LOGI(SERVER_TAG, "Received upload request!!!!!");
+                enum Uplaod_status status = initialize_spiffs_update();
+                if (status != UPLOAD_INITIALIZED) {
+                    response = "HTTP/1.1 500 Internal Server Error\r\n";
+                } else {
+                    char buffer[MAX_RESPONSE_LENGHT];
+                    int recv_size = 1;
+
+                    while (recv_size > 0 && status != UPLAOD_FAILED) {
+                        bzero(buffer, MAX_RESPONSE_LENGHT);
+                        recv_size = recv(connection_socket, buffer, MAX_RESPONSE_LENGHT, 0);
+                        if (recv_size > 0) {
+                            status = write_to_partition(buffer, recv_size);
+                        }
+                    }
+                    if (status != UPLAOD_FAILED) {
+                        response = "HTTP/1.1 200 OK\r\n";
+                        ESP_LOGI("OTA", "UPLOAD_SUCCESSFULL!!!!!!!");
+                    } else {
+                        response = "HTTP/1.1 500 Internal Server Error\r\n";
+                        ESP_LOGE("OTA", "UPLOAD_FAILED!!!!!!!!!");
+                    }
+                }
+
+        } else {
                 response = "HTTP/1.1 404 Not Found\r\n";
             }
         } else {
@@ -115,6 +197,19 @@ void handle_http_request(int connection_socket)
 
         send(connection_socket, response, strlen(response), 0);
         
+        if (entity_size > 0) {
+            int chunks = (entity_size - 1) / MAX_RESPONSE_LENGHT + 1;
+            for (int i = 0; i < chunks; i++) {
+                int size;
+                if (i * MAX_RESPONSE_LENGHT < entity_size) {
+                    size = entity_size - i * MAX_RESPONSE_LENGHT;
+                } else {
+                    size = MAX_RESPONSE_LENGHT;
+                }
+                send(connection_socket, entity + i * MAX_RESPONSE_LENGHT, size, 0);
+            }
+        }
+
     }
     shutdown(connection_socket, SHUT_RDWR);
     close(connection_socket);

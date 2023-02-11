@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pl-PL">
+<head>
+<title id="ESP_NAME"></title>
+<style>
+    body {
+        background-color: black;
+        color: white;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .topnav {
+        background-color: #333;
+        padding: 0px 0px 0px 10px;
+        overflow: hidden;
+        position: relative;
+        margin: 0px;
+        font-size: 20px;
+        text-align: left;
+    }
+    
+    button {
+        cursor: pointer;
+    }
+
+    .board_info {
+        position: absolute;
+        margin: auto;
+        margin-top: 20px;
+        display:none;
+        background-color: black;
+        text-align: center;
+        overflow: auto;
+        border: 2px solid #333;
+    }
+</style>
+</head>
+<body>
+    <h1 style="background-color: #333; margin: 0px; padding: 5px;">ESP32 DATALOADER</h1>
+    <p id = "status">Status unknown</p>
+    <br>
+    <label for="upload_partition">Choose a upload partition:</label>
+    <select id="upload_partition" name="upload_partition">
+        <option value="main">Main app</option>
+        <option value="spiffs">Spiffs</option>
+    </select>
+    <br>
+    <br>
+    <label for="file">Choose binary file to be uploaded:</label>
+    <input type="file" name="file for uplaod" id="file" style = "border: 1px solid white;"></input>
+    <button onclick="Upload()">Begin upload</button>
+    <button style="display: none; margin-top: 20px;" id = "switch" onclick="Switch()"></button>
+    <div class="board_info", id = "progress_popup">
+        <div class="topnav", style="padding:5px 0px 5px 5px;">
+            <p style="display: inline;">Upload progress</p>
+        </div>
+        <p style="text-align: left; padding: 0px 0px 0px 10px;" id = "upload_status"></p>
+        <div style="margin: 10px; width:530px; height: 30px; border: 1px solid;">
+            <div style="margin: 0px; height: 30px; width:0px; background-color: green;" id = "progress_bar"></div>
+        </div>
+        <button onclick="hide_popup()" style="display: none; margin-bottom: 10px;" id = "OK">OK</button>
+    </div>
+    <script>
+        fetchStatus();
+        var intervalId = window.setInterval(function(){
+            fetchStatus();
+        }, 5000);
+        function Upload() {
+            document.getElementById("OK").style.display = "none";
+            document.getElementById("progress_bar").style.width = "0%";
+            var file_list = document.getElementById("file").files;
+            if (file_list.length == 0) {
+                alert("No file selected!");
+            } else if (file_list[0].name.indexOf(' ') >= 0) {
+                alert("File path on server cannot have spaces!");
+            } else if (file_list[0].size > 1048576) {
+                alert("Image size too large, must be under 1MB!");
+            } else {
+                var file = file_list[0];
+
+                var div = document.getElementById("progress_popup");
+                if (div.style.display == "none" || div.style.display == "") {
+                    div.style.display = "block";
+                }
+
+                var xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function() {
+                    if (xhttp.readyState == 4) {
+                        if (xhttp.status == 200) {
+                            console.log(xhttp.responseText);
+                            document.getElementById("upload_status").innerHTML = "Upload successfull!";
+                            document.getElementById("OK").style.display = "inline";
+
+                        } else if (xhttp.status == 0) {
+                            document.getElementById("upload_status").innerHTML = "Server dropped connection!";
+                            document.getElementById("OK").style.display = "inline";
+                        } else {
+                            document.getElementById("upload_status").innerHTML = xhttp.status + " Error!\n" + xhttp;
+                            document.getElementById("OK").style.display = "inline";
+                        }
+                    }
+                };
+                xhttp.upload.addEventListener('progress', (event) => { 
+                    var div = document.getElementById("progress_bar");
+                    document.getElementById("upload_status").innerHTML = "Uploading...";
+                    var load = (event.loaded/event.total) * 100 + "%";
+                    div.style.width = load;
+                });
+                var upload_type = document.getElementById("upload_partition");
+                console.log(upload_type.options[upload_type.selectedIndex].value);
+                if (upload_type.options[upload_type.selectedIndex].value == "main") {
+                    xhttp.open("POST", "/main_app.bin");
+                    xhttp.send(file);
+                } else if (upload_type.options[upload_type.selectedIndex].value == "spiffs") {
+                    xhttp.open("POST", "/spiffs.bin");
+                    xhttp.send(file);
+                }
+            }
+        }
+
+        function fetchStatus() {
+            fetch(window.location + "esp_status")
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.mode === "software_load") {
+                        document.getElementById("status").innerHTML = "Installed software: " + data.software.name + " v" + data.software.revision + ", chip: " + data.chip.model + " v" + data.chip.revision + ", cores: " + data.chip.cores + ", SPIFFS: " + data.spiffs;
+                        if(data.software.revision != "N/A") {
+                            var button = document.getElementById("switch");
+                            button.style.display = "block";
+                            button.innerHTML = "Switch to " + data.software.name + " v" + data.software.revision;
+                        } else {
+                            var button = document.getElementById("switch");
+                            button.style.display = "none";
+                            button.innerHTML = "";
+                        }
+                    } else {
+                        location.reload();
+                    }
+                })
+            };
+        function hide_popup() {
+            document.getElementById("progress_popup").style.display = "none";
+        }
+        function Switch() {
+            fetch(window.location + "switch_to_ota")
+                .then((response) => response.text())
+                .then((data) => {
+                    if (data == "Operation accepted") {
+                        alert("Transitioning to installed software, click OK to continue");
+                        location.reload();
+                    } else {
+                        alert("Error transitioning to installed software");
+                        location.reload();
+                    }
+                })
+        }
+    </script>
+</body>
