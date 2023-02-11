@@ -83,6 +83,7 @@
                 }
 
                 var xhttp = new XMLHttpRequest();
+                xhttp.responseType = 'text';
                 xhttp.onreadystatechange = function() {
                     if (xhttp.readyState == 4) {
                         if (xhttp.status == 200) {
@@ -94,7 +95,7 @@
                             document.getElementById("upload_status").innerHTML = "Server dropped connection!";
                             document.getElementById("OK").style.display = "inline";
                         } else {
-                            document.getElementById("upload_status").innerHTML = xhttp.status + " Error!\n" + xhttp;
+                            document.getElementById("upload_status").innerHTML = xhttp.status + " Error! " + xhttp.statusText;
                             document.getElementById("OK").style.display = "inline";
                         }
                     }

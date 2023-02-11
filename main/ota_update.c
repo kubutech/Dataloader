@@ -6,6 +6,7 @@ struct {
     esp_partition_t* ota_partition;
     esp_ota_handle_t update_handle;
     enum Uplaod_status status;
+    int image_verified;
 } OTA_data;
 
 struct {
@@ -23,6 +24,7 @@ void find_update_partition()
 
 enum Uplaod_status initialize_ota()
 {
+    OTA_data.image_verified = 0;
     OTA_data.update_handle = 0;
     if (OTA_data.ota_partition == NULL) {
         OTA_data.status = UPLAOD_FAILED;
@@ -41,6 +43,15 @@ enum Uplaod_status initialize_ota()
 
 enum Uplaod_status write_ota_data(char* buffer, int buffer_size)
 {
+    if (OTA_data.image_verified == 0) {
+        if(buffer[0] == 233) {
+            OTA_data.image_verified = 1;
+        } else {
+            OTA_data.image_verified = 1;
+            OTA_data.status = UPLAOD_FAILED;
+            esp_ota_abort(OTA_data.update_handle);
+        }
+    }
     if (OTA_data.status != UPLAOD_FAILED) {
         int err = esp_ota_write(OTA_data.update_handle, (const void *)buffer, buffer_size);
         if (err != ESP_OK) {
@@ -54,17 +65,16 @@ enum Uplaod_status write_ota_data(char* buffer, int buffer_size)
     return OTA_data.status;
 }
 
-void end_ota_update()
+enum Uplaod_status end_ota_update()
 {
     if (OTA_data.status != UPLAOD_FAILED) {
         int err = esp_ota_end(OTA_data.update_handle);
         if (err != ESP_OK) {
             OTA_data.status = UPLAOD_FAILED;
             ESP_LOGI("OTA", "ERROR ENDING");
-        } else {
-            OTA_data.status = UPLOAD_SUCCESSFUL;
         }
     }
+    return OTA_data.status;
 }
 
 enum Uplaod_status initialize_spiffs_update()

@@ -137,7 +137,7 @@ void handle_http_request(int connection_socket)
                 enum Uplaod_status status = initialize_ota();
                 
                 if (status == UPLAOD_FAILED) {
-                    response = "HTTP/1.1 500 Internal Server Error\r\n";
+                    response = "HTTP/1.1 500 Internal Server Error\r\n\t\nError initalizing update!";
                 } else {
                     char buffer[MAX_RESPONSE_LENGHT];
                     int recv_size = 1;
@@ -150,19 +150,14 @@ void handle_http_request(int connection_socket)
                         }
                     }
 
-                    if (status != UPLAOD_FAILED) {
-                        end_ota_update();
-                    }
+                    status = end_ota_update();
 
                     if (status == UPLAOD_FAILED) {
-                        response = "HTTP/1.1 500 Internal Server Error\r\n";
+                        response = "HTTP/1.1 500 Internal Server Error\r\n\t\nCorrupted image";
                     } else {
                         response = "HTTP/1.1 200 OK\r\n";
                     }
-
                 }
-
-                response = "HTTP/1.1 200 OK\r\n";
             } else if (strcmp(filename, "/spiffs.bin") == 0) {
                 ESP_LOGI(SERVER_TAG, "Received upload request!!!!!");
                 enum Uplaod_status status = initialize_spiffs_update();

@@ -9,7 +9,7 @@ void get_status_json(char* json);
 enum Uplaod_status write_ota_data(char* buffer, int buffer_size);
 enum Uplaod_status initialize_ota();
 enum Uplaod_status initialize_spiffs_update();
-void end_ota_update();
+enum Uplaod_status end_ota_update();
 void find_update_partition();
 enum Uplaod_status write_to_partition(char* buffer, int buffer_size);
 enum Uplaod_status switch_to_ota_partition();
