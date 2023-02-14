@@ -56,10 +56,11 @@ enum Uplaod_status write_ota_data(char* buffer, int buffer_size)
         int err = esp_ota_write(OTA_data.update_handle, (const void *)buffer, buffer_size);
         if (err != ESP_OK) {
             OTA_data.status = UPLAOD_FAILED;
-            ESP_LOGI("OTA", "ERROR WRITING");
+            ESP_LOGE("OTA", "ERROR WRITING");
             esp_ota_abort(OTA_data.update_handle);
         } else {
             OTA_data.status = UPLOAD_IN_PROGRESS;
+            ESP_LOGI("OTA", "Wrote: %d bytes", buffer_size);
         }
     }
     return OTA_data.status;
@@ -110,6 +111,7 @@ enum Uplaod_status write_to_partition(char* buffer, int buffer_size)
         printf("\n\n%x\n\n", err);
     } else {
         SPIFFS_data.status = UPLOAD_IN_PROGRESS;
+        ESP_LOGI("OTA", "Wrote: %d bytes", buffer_size);
     }
     SPIFFS_data.offset += buffer_size;
     return SPIFFS_data.status;
