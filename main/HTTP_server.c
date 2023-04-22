@@ -10,7 +10,7 @@
 void http_listener_task(void* pvParameters)
 {
     struct sockaddr_in client_addr, http_addr;
-    int socklen = sizeof(client_addr);
+    socklen_t socklen = sizeof(client_addr);
     int connection_socket;
 
     http_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -133,20 +133,24 @@ void handle_http_request(int connection_socket)
 
                 response = "HTTP/1.1 200 OK\r\n";
             } else if (strcmp(filename, "/main_app.bin") == 0) {
-                ESP_LOGI(SERVER_TAG, "Received upload request!!!!!");
+                ESP_LOGI(SERVER_TAG, "Received upload request!");
                 enum Uplaod_status status = initialize_ota();
                 
                 if (status == UPLAOD_FAILED) {
                     response = "HTTP/1.1 500 Internal Server Error\r\n\t\nError initalizing update!";
                 } else {
-                    char buffer[MAX_RESPONSE_LENGHT];
-                    int recv_size = 1;
+                    char* payload = strstr(buffer, "\x0d\x0a\x0d\x0a");
+                    int payload_size = buffer + result - payload - 4;
 
-                    while (recv_size > 0 && status != UPLAOD_FAILED) {
+                    if (payload_size > 0) {
+                        status = write_ota_data(payload + 4, payload_size);
+                    }
+
+                    while (result > 0 && status != UPLAOD_FAILED) {
                         bzero(buffer, MAX_RESPONSE_LENGHT);
-                        recv_size = recv(connection_socket, buffer, MAX_RESPONSE_LENGHT, 0);
-                        if (recv_size > 0) {
-                            status = write_ota_data(buffer, recv_size);
+                        result = recv(connection_socket, buffer, MAX_RESPONSE_LENGHT, 0);
+                        if (result > 0) {
+                            status = write_ota_data(buffer, result);
                         }
                     }
 
@@ -159,27 +163,31 @@ void handle_http_request(int connection_socket)
                     }
                 }
             } else if (strcmp(filename, "/spiffs.bin") == 0) {
-                ESP_LOGI(SERVER_TAG, "Received upload request!!!!!");
+                ESP_LOGI(SERVER_TAG, "Received upload request!");
                 enum Uplaod_status status = initialize_spiffs_update();
                 if (status != UPLOAD_INITIALIZED) {
                     response = "HTTP/1.1 500 Internal Server Error\r\n";
                 } else {
-                    char buffer[MAX_RESPONSE_LENGHT];
-                    int recv_size = 1;
+                    char* payload = strstr(buffer, "\x0d\x0a\x0d\x0a");
+                    int payload_size = buffer + result - payload - 4;
 
-                    while (recv_size > 0 && status != UPLAOD_FAILED) {
+                    if (payload_size > 0) {
+                        status = write_to_partition(payload + 4, payload_size);
+                    }
+                    
+                    while (result > 0 && status != UPLAOD_FAILED) {
                         bzero(buffer, MAX_RESPONSE_LENGHT);
-                        recv_size = recv(connection_socket, buffer, MAX_RESPONSE_LENGHT, 0);
-                        if (recv_size > 0) {
-                            status = write_to_partition(buffer, recv_size);
+                        result = recv(connection_socket, buffer, MAX_RESPONSE_LENGHT, 0);
+                        if (result > 0) {
+                            status = write_to_partition(buffer, result);
                         }
                     }
                     if (status != UPLAOD_FAILED) {
                         response = "HTTP/1.1 200 OK\r\n";
-                        ESP_LOGI("OTA", "UPLOAD_SUCCESSFULL!!!!!!!");
+                        ESP_LOGI("OTA", "UPLOAD_SUCCESSFULL!");
                     } else {
                         response = "HTTP/1.1 500 Internal Server Error\r\n";
-                        ESP_LOGE("OTA", "UPLOAD_FAILED!!!!!!!!!");
+                        ESP_LOGE("OTA", "UPLOAD_FAILED!");
                     }
                 }
 

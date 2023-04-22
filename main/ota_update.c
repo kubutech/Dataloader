@@ -44,12 +44,14 @@ enum Uplaod_status initialize_ota()
 enum Uplaod_status write_ota_data(char* buffer, int buffer_size)
 {
     if (OTA_data.image_verified == 0) {
-        if(buffer[0] == 233) {
+        if (buffer[0] == 233) {
             OTA_data.image_verified = 1;
+            printf("Image verification successfull");
         } else {
             OTA_data.image_verified = 1;
             OTA_data.status = UPLAOD_FAILED;
             esp_ota_abort(OTA_data.update_handle);
+            printf("Image verification fail");
         }
     }
     if (OTA_data.status != UPLAOD_FAILED) {
