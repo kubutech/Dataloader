@@ -95,8 +95,8 @@
                             document.getElementById("upload_status").innerHTML = xhttp.status + " Error! " + xhttp.statusText;
                             document.getElementById("OK").style.display = "inline";
                         }
+                        fetchStatus();
                     }
-                    fetchStatus();
                 };
                 xhttp.upload.addEventListener('progress', (event) => { 
                     var div = document.getElementById("progress_bar");
