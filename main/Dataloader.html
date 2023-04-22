@@ -60,10 +60,6 @@
         <button onclick="hide_popup()" style="display: none; margin-bottom: 10px;" id = "OK">OK</button>
     </div>
     <script>
-        fetchStatus();
-        var intervalId = window.setInterval(function(){
-            fetchStatus();
-        }, 5000);
         function Upload() {
             document.getElementById("OK").style.display = "none";
             document.getElementById("progress_bar").style.width = "0%";
@@ -99,6 +95,7 @@
                             document.getElementById("OK").style.display = "inline";
                         }
                     }
+                    fetchStatus();
                 };
                 xhttp.upload.addEventListener('progress', (event) => { 
                     var div = document.getElementById("progress_bar");
